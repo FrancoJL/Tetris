@@ -514,67 +514,48 @@ void print_campo(int campo[22][12])
     al_destroy_bitmap(bitmap);
 }
 
-int cargar_piezas(struct nodo **h, struct nodo **l)
+int cargar_piezas(struct nodo **h)
 {
     FILE *fp;
     struct nodo *aux;
     char buffer[20];
-    
+    char a,b;
     fp = fopen("Data/Piezas", "r");
-    
     if(fp == NULL)
     {
+        printf("ERROR AL CARGAR ARCHIVO\n");
         return -1;
     }
     else
     {
-        aux = agregar_nodo(h, l);
-        fscanf(fp, "%c", &(aux->pieza.nombre));
-        fscanf(fp, "%s", buffer);
-        fscanf(fp, "%s", buffer);
-        aux->pieza.centro_pos[0] = CtoI(buffer[1]);
-        aux->pieza.centro_pos[1] = CtoI(buffer[3]);
-        fscanf(fp, "%s", buffer);
-        fscanf(fp, "%s", buffer);
-        aux->pieza.periferico_1_pos[0] = CtoI(buffer[1]);
-        aux->pieza.periferico_1_pos[1] = CtoI(buffer[3]);
-        fscanf(fp, "%s", buffer);
-        fscanf(fp, "%s", buffer);
-        aux->pieza.periferico_2_pos[0] = CtoI(buffer[1]);
-        aux->pieza.periferico_2_pos[1] = CtoI(buffer[3]);
-        fscanf(fp, "%s", buffer);
-        fscanf(fp, "%s", buffer);
-        aux->pieza.periferico_3_pos[0] = CtoI(buffer[1]);
-        aux->pieza.periferico_3_pos[1] = CtoI(buffer[3]);
-        fscanf(fp, "%s", buffer);
-        fscanf(fp, "%s", aux->pieza.color);
-        fscanf(fp, "%s", buffer);
-        
         while(!feof(fp))
         {
-            aux = agregar_nodo(h, l);
-            fscanf(fp, "%c", &(aux->pieza.nombre));
-            fscanf(fp, "%s", buffer);
-            fscanf(fp, "%s", buffer);
-            aux->pieza.centro_pos[0] = CtoI(buffer[1]);
-            aux->pieza.centro_pos[1] = CtoI(buffer[3]);
-            fscanf(fp, "%s", buffer);
-            fscanf(fp, "%s", buffer);
-            aux->pieza.periferico_1_pos[0] = CtoI(buffer[1]);
-            aux->pieza.periferico_1_pos[1] = CtoI(buffer[3]);
-            fscanf(fp, "%s", buffer);
-            fscanf(fp, "%s", buffer);
-            aux->pieza.periferico_2_pos[0] = CtoI(buffer[1]);
-            aux->pieza.periferico_2_pos[1] = CtoI(buffer[3]);
-            fscanf(fp, "%s", buffer);
-            fscanf(fp, "%s", buffer);
-            aux->pieza.periferico_3_pos[0] = CtoI(buffer[1]);
-            aux->pieza.periferico_3_pos[1] = CtoI(buffer[3]);
-            fscanf(fp, "%s", buffer);
-            fscanf(fp, "%s", aux->pieza.color);
-            fscanf(fp, "%s", buffer);
+            aux=(struct nodo*)malloc(sizeof(struct nodo));
+            fscanf(fp, "%c\n", &(aux->pieza.nombre));
+            fscanf(fp, "%s ", buffer);
+            fscanf(fp, "%c %c\n",&a,&b);
+            aux->pieza.centro_pos[0] = CtoI(a);
+            aux->pieza.centro_pos[1] = CtoI(b);
+            fscanf(fp, "%s ", buffer);
+            fscanf(fp, "%c %c\n",&a,&b);
+            aux->pieza.periferico_1_pos[0] = CtoI(a);
+            aux->pieza.periferico_1_pos[1] = CtoI(b);
+            fscanf(fp, "%s ", buffer);
+            fscanf(fp, "%c %c\n", &a,&b);
+            aux->pieza.periferico_2_pos[0] = CtoI(a);
+            aux->pieza.periferico_2_pos[1] = CtoI(b);
+            fscanf(fp, "%s ", buffer);
+            fscanf(fp, "%c %c\n",&a,&b);
+            aux->pieza.periferico_3_pos[0] = CtoI(a);
+            aux->pieza.periferico_3_pos[1] = CtoI(b);
+            fscanf(fp, "%s ", buffer);
+            fscanf(fp, "%s\n", aux->pieza.color);
+            fscanf(fp, "%s\n", buffer);
+            aux->next=NULL;
+            agregar_nodo(h,aux);
         }
     }
+    fclose(fp);
     return 1;
 }
 
