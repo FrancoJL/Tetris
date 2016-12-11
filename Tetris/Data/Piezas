@@ -1,49 +1,49 @@
 O
-CENTRO= (6,2)
-PERIFERICO= (6,1)
-PERIFERICO= (5,2)
-PERIFERICO= (5,1)
-COLOR= amarillo
------------------
+CENTRO 6 2
+PERIFERICO 6 1
+PERIFERICO 5 2 
+PERIFERICO 5 1 
+COLOR amarillo
+--------------
 L
-CENTRO= (6,2)
-PERIFERICO= (6,1)
-PERIFERICO= (6,3)
-PERIFERICO= (7,3)
-COLOR= naranja
------------------
+CENTRO 6 2
+PERIFERICO 6 1
+PERIFERICO 6 3
+PERIFERICO 7 3
+COLOR naranja
+--------------
 J
-CENTRO= (6,2)
-PERIFERICO= (6,1)
-PERIFERICO= (6,3)
-PERIFERICO= (5,3)
-COLOR= azul
------------------
+CENTRO 6 2
+PERIFERICO 6 1
+PERIFERICO 6 3
+PERIFERICO 5 3
+COLOR azul
+--------------
 S
-CENTRO= (6,2)
-PERIFERICO= (6,1)
-PERIFERICO= (7,1)
-PERIFERICO= (5,2)
-COLOR= verde
------------------
+CENTRO 6 2
+PERIFERICO 6 1
+PERIFERICO 7 1
+PERIFERICO 5 2
+COLOR verde
+--------------
 Z
-CENTRO= (6,2)
-PERIFERICO= (6,1)
-PERIFERICO= (5,1)
-PERIFERICO= (7,2)
-COLOR= roja
------------------
+CENTRO 6 2
+PERIFERICO 6 1
+PERIFERICO 5 1
+PERIFERICO 7 2
+COLOR roja
+-------------
 I
-CENTRO= (6,2)
-PERIFERICO= (6,1)
-PERIFERICO= (6,3)
-PERIFERICO= (6,4)
-COLOR= cyan
------------------
+CENTRO 6 2
+PERIFERICO 6 1
+PERIFERICO 6 3
+PERIFERICO 6 4
+COLOR cyan
+-------------
 T
-CENTRO= (6,2)
-PERIFERICO= (6,1)
-PERIFERICO= (5,1)
-PERIFERICO= (7,1)
-COLOR=violeta
------------------
+CENTRO 6 2
+PERIFERICO 6 1
+PERIFERICO 5 1
+PERIFERICO 7 1
+COLOR violeta
+-------------
