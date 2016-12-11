@@ -35,10 +35,10 @@ struct nodo
 };
 
 int CtoI(char);
-struct nodo *agregar_nodo(struct nodo **, struct nodo **);
+void agregar_nodo(struct nodo **h,struct nodo *aux);
 void init_campo(int campo[22][12]);
 void print_campo(int campo[22][12]);
-int cargar_piezas(struct nodo **, struct nodo **);
+int cargar_piezas(struct nodo **);
 void put_pieza_campo(struct datos *, int campo[22][12]);
 void detect_colision(int campo[22][12], int *, struct datos *);
 void move_pieza(struct datos *, double, int campo[22][12]);
@@ -388,31 +388,23 @@ int CtoI(char a)
     }
 }
         
-struct nodo *agregar_nodo(struct nodo **h, struct nodo **l)
+void agregar_nodo(struct nodo **h,struct nodo *aux)
 {
-    struct nodo *aux;
-    
-    aux = (struct nodo *)malloc(sizeof(struct nodo));
- 
-    if(aux = NULL)
+    struct nodo *l;
+    if((*h)==NULL)
     {
-        return NULL;
-    }
-    
-    if(*h == NULL)
-    {
-        *h = aux;
-        *l = aux;
-        aux->next = NULL;
+        (*h)=aux;
+        return;
     }
     else
     {
-        (*l)->next = aux;
-        *l = aux;
-        aux->next = NULL;
+        l=(*h);
+        while(l->next!=NULL)
+        {
+            l=l->next;
+        }
+        l->next=aux;
     }
-    
-    return aux;
 }
 
 void init_campo(int campo[22][12])
