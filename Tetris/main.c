@@ -46,6 +46,7 @@ void move_pieza(struct datos *, double, int campo[22][12]);
 void print(struct datos *);
 void clear(struct datos *);
 struct datos prandom(struct nodo **, int campo[22][12]);
+int delete_line(int campo[22][12]);
 
 int main(void)
 {
@@ -536,14 +537,14 @@ void move_pieza(struct datos *pieza, double velocidad, int campo[22][12])
                         put_pieza_campo(pieza, campo);
                         print(pieza);
                         al_flip_display();
-//                         for(y = 0; y < 22; y++)
-//                         {
-//                             for(x = 0; x < 12; x++)
-//                             {
-//                                 printf("%d", campo[y][x]);
-//                             }
-//                             printf("\n");
-//                         }
+                        for(y = 0; y < 22; y++)
+                        {
+                            for(x = 0; x < 12; x++)
+                            {
+                                printf("%d", campo[y][x]);
+                            }
+                            printf("\n");
+                        }
                     }
                 }
                 if(events.keyboard.keycode == ALLEGRO_KEY_LEFT)
@@ -563,15 +564,15 @@ void move_pieza(struct datos *pieza, double velocidad, int campo[22][12])
                         put_pieza_campo(pieza, campo);
                         print(pieza);;
                         al_flip_display();
-//                         for(y = 0; y < 22; y++)
-//                         {
-//                             for(x = 0; x < 12; x++)
-//                             {
-//                                 printf("%d", campo[y][x]);
-//                             }
-//                             printf("\n");
-//                                                     
-//                         }
+                        for(y = 0; y < 22; y++)
+                        {
+                            for(x = 0; x < 12; x++)
+                            {
+                                printf("%d", campo[y][x]);
+                            }
+                            printf("\n");
+                                                    
+                        }
                     }
                 }
                 if(events.keyboard.keycode == ALLEGRO_KEY_UP)
@@ -609,14 +610,14 @@ void move_pieza(struct datos *pieza, double velocidad, int campo[22][12])
         put_pieza_campo(pieza, campo);
         print(pieza);
         al_flip_display();
-//         for(y = 0; y < 22; y++)
-//         {
-//             for(x = 0; x < 12; x++)
-//             {
-//                 printf("%d", campo[y][x]);
-//             }
-//             printf("\n");
-//         }
+        for(y = 0; y < 22; y++)
+        {
+            for(x = 0; x < 12; x++)
+            {
+                printf("%d", campo[y][x]);
+            }
+            printf("\n");
+        }
         }
         else
         {
@@ -625,18 +626,21 @@ void move_pieza(struct datos *pieza, double velocidad, int campo[22][12])
             campo[pieza->periferico_1_pos[1]][pieza->periferico_1_pos[0]] = -(campo[pieza->periferico_1_pos[1]][pieza->periferico_1_pos[0]]);
             campo[pieza->periferico_2_pos[1]][pieza->periferico_2_pos[0]] = -(campo[pieza->periferico_2_pos[1]][pieza->periferico_2_pos[0]]);
             campo[pieza->periferico_3_pos[1]][pieza->periferico_3_pos[0]] = -(campo[pieza->periferico_3_pos[1]][pieza->periferico_3_pos[0]]);
-    //         for(y = 0; y < 22; y++)
-    //         {
-    //             for(x = 0; x < 12; x++)
-    //             {
-    //                 printf("%d", campo[y][x]);
-    //             }
-    //             printf("\n");
-    //         }
+            for(y = 0; y < 22; y++)
+            {
+                for(x = 0; x < 12; x++)
+                {
+                    printf("%d", campo[y][x]);
+                }
+                printf("\n");
+            }
+            delete_line(campo);
+            print_campo(campo);
         }
     }
     al_destroy_event_queue(event_queue);
     al_destroy_timer(timer);
+    
 }
 
 void detect_colision(int campo[22][12], int *v, struct datos *pieza)
@@ -754,4 +758,32 @@ struct datos prandom(struct nodo **h, int campo[22][12])
     for(aux = *h, n = 0; n < m; n++, aux = aux->next);
     
     return aux->pieza;
-}        
+}
+int delete_line(int campo[22][12])
+{
+    int i,j,k,marca,lineas=0;
+    for(i=1;i<21;i++)//desde linea de arriba
+    {
+        marca=0;
+        for(j=1;j<11;j++)
+        {
+            if(campo[i][j]<0)//solo si hay basura
+                marca++;
+            else//si no hay basura, se sale pasa a la otra linea
+                j=20;//asigne j=20 para que salga del for
+        }
+        if(marca==10)
+        {
+            for(k=i;k>0;k--)
+            {
+                if(k!=1)
+                {
+                for(j=1;j<11;j++)//no estoy contemplando si fuera la primera linea
+                    campo[k][j]=campo[k-1][j];
+                }
+            }
+            lineas++;
+        }
+    }
+    return lineas;
+}
