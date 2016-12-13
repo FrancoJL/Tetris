@@ -16,6 +16,7 @@
  * 6: Pieza color CYAN
  * 7: Pieza color AZUL
  * 8: Pieza color VIOLETA
+ * Numeros negativos: Basura
  */
 
 struct datos
@@ -45,8 +46,11 @@ void detect_colision(int campo[22][12], int *, struct datos *);
 void move_pieza(struct datos *, double, int campo[22][12]);
 void print(struct datos *);
 void clear(struct datos *);
-struct datos prandom(struct nodo **, int campo[22][12]);
+struct datos prandom(struct nodo **);
 int delete_line(int campo[22][12]);
+int comprobar(struct datos, int campo[22][12]);
+void print_next(struct datos);
+void clear_next(struct datos);
 
 int main(void)
 {
@@ -77,22 +81,55 @@ int main(void)
     int campo[22][12];
     ALLEGRO_DISPLAY *display;
     struct nodo *h = NULL, *l = NULL;
-    struct datos pieza;
+    struct datos pieza, pieza_next;
     
     display = al_create_display(800, 600);
     
     cargar_piezas(&h);
     init_campo(campo);
     
+//     campo[20][1] = -2;
+//     campo[20][2] = -2;
+//     campo[20][3] = -2;
+//     campo[20][4] = -2;
+//     campo[20][6] = -2;
+//     campo[20][7] = -2;
+//     campo[20][8] = -2;
+//     campo[20][9] = -2;
+//     campo[20][10] = -2;
+//     
+//     campo[18][1] = -2;
+//     campo[18][2] = -2;
+//     campo[18][3] = -2;
+//     campo[18][4] = -2;
+//     campo[18][6] = -2;
+//     campo[18][7] = -2;
+//     campo[18][8] = -2;
+//     campo[18][9] = -2;
+//     campo[18][10] = -2;
+//     
+//     campo[19][4] = -4;
+//     campo[17][4] = -4;
+    
     srand(getpid());
+    
+    pieza = prandom(&h);
+    pieza_next = prandom(&h);
+    print_next(pieza_next);
     
     while(1)
     {
-        pieza = prandom(&h, campo);
+        if(comprobar(pieza, campo) == -1)
+        {
+            exit(EXIT_SUCCESS);
+        }
         put_pieza_campo(&pieza, campo);
         print_campo(campo);
         al_flip_display();
         move_pieza(&pieza, 0.25, campo);
+        pieza = pieza_next;
+        pieza_next = prandom(&h);
+        print_next(pieza_next);
     }
     
     al_destroy_display(display);
@@ -610,14 +647,14 @@ void move_pieza(struct datos *pieza, double velocidad, int campo[22][12])
         put_pieza_campo(pieza, campo);
         print(pieza);
         al_flip_display();
-        for(y = 0; y < 22; y++)
-        {
-            for(x = 0; x < 12; x++)
-            {
-                printf("%d", campo[y][x]);
-            }
-            printf("\n");
-        }
+//         for(y = 0; y < 22; y++)
+//         {
+//             for(x = 0; x < 12; x++)
+//             {
+//                 printf("%d", campo[y][x]);
+//             }
+//             printf("\n");
+//         }
         }
         else
         {
@@ -626,14 +663,14 @@ void move_pieza(struct datos *pieza, double velocidad, int campo[22][12])
             campo[pieza->periferico_1_pos[1]][pieza->periferico_1_pos[0]] = -(campo[pieza->periferico_1_pos[1]][pieza->periferico_1_pos[0]]);
             campo[pieza->periferico_2_pos[1]][pieza->periferico_2_pos[0]] = -(campo[pieza->periferico_2_pos[1]][pieza->periferico_2_pos[0]]);
             campo[pieza->periferico_3_pos[1]][pieza->periferico_3_pos[0]] = -(campo[pieza->periferico_3_pos[1]][pieza->periferico_3_pos[0]]);
-            for(y = 0; y < 22; y++)
-            {
-                for(x = 0; x < 12; x++)
-                {
-                    printf("%d", campo[y][x]);
-                }
-                printf("\n");
-            }
+//             for(y = 0; y < 22; y++)
+//             {
+//                 for(x = 0; x < 12; x++)
+//                 {
+//                     printf("%d", campo[y][x]);
+//                 }
+//                 printf("\n");
+//             }
             delete_line(campo);
             al_clear_to_color(al_map_rgb(0, 0, 0));
             print_campo(campo);
@@ -641,7 +678,8 @@ void move_pieza(struct datos *pieza, double velocidad, int campo[22][12])
         }
     }
     al_destroy_event_queue(event_queue);
-    al_destroy_timer(timer); 
+    al_destroy_timer(timer);
+    
 }
 
 void detect_colision(int campo[22][12], int *v, struct datos *pieza)
@@ -683,10 +721,45 @@ void detect_colision(int campo[22][12], int *v, struct datos *pieza)
      }
  }
  
+int comprobar(struct datos pieza, int campo[22][12])
+{
+    switch(pieza.nombre)
+    {
+        case 'O':
+            if(campo[1][6] < 0 || campo[2][6] < 0 || campo[2][5] < 0 || campo[1][5] < 0)
+                return -1;
+            
+        case 'L':
+            if(campo[1][5] < 0 || campo[2][5] < 0 || campo[3][5] < 0 || campo[3][6] < 0)
+                return -1;
+            
+        case 'J':
+            if(campo[1][6] < 0 || campo[2][6] < 0 || campo[3][6] < 0 || campo[3][5] < 0)
+                return -1;
+        
+        case 'S':
+            if(campo[1][5] < 0 || campo[2][5] < 0 || campo[1][6] < 0 || campo[2][4] < 0)
+                return -1;
+            
+        case 'Z':
+            if(campo[1][5] < 0 || campo[2][5] < 0 || campo[1][4] < 0 || campo[2][6] < 0)
+                return -1;
+            
+        case 'I':
+            if(campo[1][4] < 0 || campo[1][5] < 0 || campo[1][6] < 0 || campo[1][7] < 0)
+                return -1;
+            
+        case 'T':
+            if(campo[1][6] < 0 || campo[2][6] < 0 || campo[1][5] < 0 || campo[1][7] < 0)
+                return -1;
+    }
+    return 0;
+}
+
 void put_pieza_campo(struct datos *pieza, int campo[22][12])
 {
     int i;
-    
+            
     if(strcmp(pieza->color, "rojo") == 0)
         i = 2;
     else if(strcmp(pieza->color, "naranja") == 0)
@@ -749,7 +822,48 @@ void print(struct datos *pieza)
     al_destroy_bitmap(bitmap);
 }
 
-struct datos prandom(struct nodo **h, int campo[22][12])
+void clear_next(struct datos pieza)
+{
+    ALLEGRO_BITMAP *bitmap;
+    
+    bitmap = al_load_bitmap("Graphics/clear.png");
+    
+    al_draw_bitmap(bitmap, (pieza.centro_pos[0]*26)+(26*10), pieza.centro_pos[1]*26, 0);
+    al_draw_bitmap(bitmap, (pieza.periferico_1_pos[0]*26)+(26*10), pieza.periferico_1_pos[1]*26, 0);
+    al_draw_bitmap(bitmap, (pieza.periferico_2_pos[0]*26)+(26*10), pieza.periferico_2_pos[1]*26, 0);
+    al_draw_bitmap(bitmap, (pieza.periferico_3_pos[0]*26)+(26*10), pieza.periferico_3_pos[1]*26, 0);
+ 
+    al_destroy_bitmap(bitmap);
+}
+
+void print_next(struct datos pieza)
+{
+    ALLEGRO_BITMAP *bitmap;
+    
+    if(strcmp(pieza.color, "rojo") == 0)
+        bitmap = al_load_bitmap("Graphics/pieza_rojo.png");
+    if(strcmp(pieza.color, "naranja") == 0)
+        bitmap = al_load_bitmap("Graphics/pieza_naranja.png");
+    if(strcmp(pieza.color, "amarillo") == 0)
+        bitmap = al_load_bitmap("Graphics/pieza_amarillo.png");
+    if(strcmp(pieza.color, "verde") == 0)
+        bitmap = al_load_bitmap("Graphics/pieza_verde.png");
+    if(strcmp(pieza.color, "cyan") == 0)
+        bitmap = al_load_bitmap("Graphics/pieza_cyan.png");
+    if(strcmp(pieza.color, "azul") == 0)
+        bitmap = al_load_bitmap("Graphics/pieza_azul.png");
+    if(strcmp(pieza.color, "violeta") == 0)
+        bitmap = al_load_bitmap("Graphics/pieza_violeta.png");
+    
+    al_draw_bitmap(bitmap, (pieza.centro_pos[0]*26)+(26*10), pieza.centro_pos[1]*26+(26*3), 0);
+    al_draw_bitmap(bitmap, (pieza.periferico_1_pos[0]*26)+(26*10), pieza.periferico_1_pos[1]*26+(26*3), 0);
+    al_draw_bitmap(bitmap, (pieza.periferico_2_pos[0]*26)+(26*10), pieza.periferico_2_pos[1]*26+(26*3), 0);
+    al_draw_bitmap(bitmap, (pieza.periferico_3_pos[0]*26)+(26*10), pieza.periferico_3_pos[1]*26+(26*3), 0);
+ 
+    al_destroy_bitmap(bitmap);
+}
+
+struct datos prandom(struct nodo **h)
 {
     int m, n;
     struct nodo *aux;
@@ -760,6 +874,7 @@ struct datos prandom(struct nodo **h, int campo[22][12])
     
     return aux->pieza;
 }
+
 int delete_line(int campo[22][12])
 {
     int i, j, k, marca, lineas = 0;
@@ -779,7 +894,7 @@ int delete_line(int campo[22][12])
             {
                 if(k != 1)
                 {
-                for(j = 1; j < 11; j++)//no estoy contemplando si fuera la primera linea
+                    for(j = 1; j < 11; j++)//no estoy contemplando si fuera la primera linea
                     campo[k][j] = campo[k-1][j];
                 }
             }
