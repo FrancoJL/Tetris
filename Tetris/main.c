@@ -641,8 +641,7 @@ void move_pieza(struct datos *pieza, double velocidad, int campo[22][12])
         }
     }
     al_destroy_event_queue(event_queue);
-    al_destroy_timer(timer);
-    
+    al_destroy_timer(timer); 
 }
 
 void detect_colision(int campo[22][12], int *v, struct datos *pieza)
