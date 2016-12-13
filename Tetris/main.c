@@ -635,7 +635,9 @@ void move_pieza(struct datos *pieza, double velocidad, int campo[22][12])
                 printf("\n");
             }
             delete_line(campo);
+            al_clear_to_color(al_map_rgb(0, 0, 0));
             print_campo(campo);
+            al_flip_display();
         }
     }
     al_destroy_event_queue(event_queue);
@@ -761,25 +763,25 @@ struct datos prandom(struct nodo **h, int campo[22][12])
 }
 int delete_line(int campo[22][12])
 {
-    int i,j,k,marca,lineas=0;
-    for(i=1;i<21;i++)//desde linea de arriba
+    int i, j, k, marca, lineas = 0;
+    for(i = 1; i < 21; i++)         //desde linea de arriba
     {
-        marca=0;
-        for(j=1;j<11;j++)
+        marca = 0;
+        for(j = 1; j < 11; j++)
         {
-            if(campo[i][j]<0)//solo si hay basura
+            if(campo[i][j] < 0)     //solo si hay basura
                 marca++;
-            else//si no hay basura, se sale pasa a la otra linea
-                j=20;//asigne j=20 para que salga del for
+            else                    //si no hay basura, se sale pasa a la otra linea
+                j = 20;             //asigne j=20 para que salga del for
         }
-        if(marca==10)
+        if(marca == 10)
         {
-            for(k=i;k>0;k--)
+            for(k = i; k > 0; k--)
             {
-                if(k!=1)
+                if(k != 1)
                 {
-                for(j=1;j<11;j++)//no estoy contemplando si fuera la primera linea
-                    campo[k][j]=campo[k-1][j];
+                for(j = 1; j < 11; j++)//no estoy contemplando si fuera la primera linea
+                    campo[k][j] = campo[k-1][j];
                 }
             }
             lineas++;
