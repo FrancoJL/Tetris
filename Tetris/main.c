@@ -50,7 +50,6 @@ struct datos prandom(struct nodo **);
 int delete_line(int campo[22][12]);
 int comprobar(struct datos, int campo[22][12]);
 void print_next(struct datos);
-void clear_next(struct datos);
 
 int main(void)
 {
@@ -78,7 +77,7 @@ int main(void)
         exit(EXIT_FAILURE);
     }
     
-    int campo[22][12];
+    int campo[22][12], marca = 1;
     ALLEGRO_DISPLAY *display;
     struct nodo *h = NULL, *l = NULL;
     struct datos pieza, pieza_next;
@@ -88,49 +87,29 @@ int main(void)
     cargar_piezas(&h);
     init_campo(campo);
     
-//     campo[20][1] = -2;
-//     campo[20][2] = -2;
-//     campo[20][3] = -2;
-//     campo[20][4] = -2;
-//     campo[20][6] = -2;
-//     campo[20][7] = -2;
-//     campo[20][8] = -2;
-//     campo[20][9] = -2;
-//     campo[20][10] = -2;
-//     
-//     campo[18][1] = -2;
-//     campo[18][2] = -2;
-//     campo[18][3] = -2;
-//     campo[18][4] = -2;
-//     campo[18][6] = -2;
-//     campo[18][7] = -2;
-//     campo[18][8] = -2;
-//     campo[18][9] = -2;
-//     campo[18][10] = -2;
-//     
-//     campo[19][4] = -4;
-//     campo[17][4] = -4;
-    
     srand(getpid());
     
     pieza = prandom(&h);
     pieza_next = prandom(&h);
-    print_next(pieza_next);
+    print_campo(campo);
     
-    while(1)
+    do
     {
         if(comprobar(pieza, campo) == -1)
         {
-            exit(EXIT_SUCCESS);
+            marca = 0;
         }
         put_pieza_campo(&pieza, campo);
         print_campo(campo);
+        print_next(pieza_next);
+        print_next(pieza_next);
+        print_next(pieza_next);
+        print_next(pieza_next);
         al_flip_display();
         move_pieza(&pieza, 0.25, campo);
         pieza = pieza_next;
         pieza_next = prandom(&h);
-        print_next(pieza_next);
-    }
+    }while(marca == 1);
     
     al_destroy_display(display);
     
@@ -541,15 +520,17 @@ int cargar_piezas(struct nodo **h)
 
 void move_pieza(struct datos *pieza, double velocidad, int campo[22][12])
 {
-    int marca = 0, v[4], x, y;
-    ALLEGRO_TIMER *timer = al_create_timer(velocidad);
+    int marca = 0, v[4], x, y, n = 1;
+    ALLEGRO_TIMER *timer;
     ALLEGRO_EVENT_QUEUE *event_queue = al_create_event_queue();
     ALLEGRO_EVENT events;
+    ALLEGRO_KEYBOARD_STATE state;
     
     al_register_event_source(event_queue, al_get_keyboard_event_source());
     
     while(marca == 0)
     {
+        timer = al_create_timer(velocidad);
         al_set_timer_count(timer, 0);
         al_start_timer(timer);
         while(al_get_timer_count(timer) < 1)
@@ -557,6 +538,7 @@ void move_pieza(struct datos *pieza, double velocidad, int campo[22][12])
             al_get_next_event(event_queue, &events);
             if(events.type == ALLEGRO_EVENT_KEY_DOWN)
             {
+                
                 if(events.keyboard.keycode == ALLEGRO_KEY_RIGHT)
                 {
                     detect_colision(campo, v, pieza);
@@ -574,14 +556,14 @@ void move_pieza(struct datos *pieza, double velocidad, int campo[22][12])
                         put_pieza_campo(pieza, campo);
                         print(pieza);
                         al_flip_display();
-                        for(y = 0; y < 22; y++)
-                        {
-                            for(x = 0; x < 12; x++)
-                            {
-                                printf("%d", campo[y][x]);
-                            }
-                            printf("\n");
-                        }
+//                         for(y = 0; y < 22; y++)
+//                         {
+//                             for(x = 0; x < 12; x++)
+//                             {
+//                                 printf("%d", campo[y][x]);
+//                             }
+//                             printf("\n");
+//                         }
                     }
                 }
                 if(events.keyboard.keycode == ALLEGRO_KEY_LEFT)
@@ -599,17 +581,17 @@ void move_pieza(struct datos *pieza, double velocidad, int campo[22][12])
                         pieza->periferico_2_pos[0] -= 1;
                         pieza->periferico_3_pos[0] -= 1;
                         put_pieza_campo(pieza, campo);
-                        print(pieza);;
+                        print(pieza);
                         al_flip_display();
-                        for(y = 0; y < 22; y++)
-                        {
-                            for(x = 0; x < 12; x++)
-                            {
-                                printf("%d", campo[y][x]);
-                            }
-                            printf("\n");
-                                                    
-                        }
+//                         for(y = 0; y < 22; y++)
+//                         {
+//                             for(x = 0; x < 12; x++)
+//                             {
+//                                 printf("%d", campo[y][x]);
+//                             }
+//                             printf("\n");
+//                                                     
+//                         }
                     }
                 }
                 if(events.keyboard.keycode == ALLEGRO_KEY_UP)
@@ -627,6 +609,22 @@ void move_pieza(struct datos *pieza, double velocidad, int campo[22][12])
                     put_pieza_campo(pieza, campo);
                     print(pieza);
                     al_flip_display();
+                }
+                if(events.keyboard.keycode == ALLEGRO_KEY_DOWN)
+                {
+                    do
+                    {
+                        al_get_keyboard_state(&state);
+                        if(al_key_down(&state, ALLEGRO_KEY_DOWN) == true)
+                        {
+                            n = 0;
+                            velocidad = 0.03;
+                        }
+                        else
+                        {
+                            n = 1;
+                        }
+                    }while(n == 1);
                 }
              }
          }
@@ -818,20 +816,6 @@ void print(struct datos *pieza)
     al_draw_bitmap(bitmap, pieza->periferico_1_pos[0]*26, pieza->periferico_1_pos[1]*26, 0);
     al_draw_bitmap(bitmap, pieza->periferico_2_pos[0]*26, pieza->periferico_2_pos[1]*26, 0);
     al_draw_bitmap(bitmap, pieza->periferico_3_pos[0]*26, pieza->periferico_3_pos[1]*26, 0);
- 
-    al_destroy_bitmap(bitmap);
-}
-
-void clear_next(struct datos pieza)
-{
-    ALLEGRO_BITMAP *bitmap;
-    
-    bitmap = al_load_bitmap("Graphics/clear.png");
-    
-    al_draw_bitmap(bitmap, (pieza.centro_pos[0]*26)+(26*10), pieza.centro_pos[1]*26, 0);
-    al_draw_bitmap(bitmap, (pieza.periferico_1_pos[0]*26)+(26*10), pieza.periferico_1_pos[1]*26, 0);
-    al_draw_bitmap(bitmap, (pieza.periferico_2_pos[0]*26)+(26*10), pieza.periferico_2_pos[1]*26, 0);
-    al_draw_bitmap(bitmap, (pieza.periferico_3_pos[0]*26)+(26*10), pieza.periferico_3_pos[1]*26, 0);
  
     al_destroy_bitmap(bitmap);
 }
