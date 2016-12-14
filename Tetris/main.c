@@ -43,7 +43,7 @@ void print_campo(int campo[22][12]);
 int cargar_piezas(struct nodo **);
 void put_pieza_campo(struct datos *, int campo[22][12]);
 void detect_colision(int campo[22][12], int *, struct datos *);
-void move_pieza(struct datos *, double, int campo[22][12]);
+void move_pieza(struct datos *, double, int campo[22][12],int puntos[3]);
 void print(struct datos *);
 void clear(struct datos *);
 struct datos prandom(struct nodo **);
@@ -79,6 +79,7 @@ int main(void)
     
     int campo[22][12], marca = 1;
     ALLEGRO_DISPLAY *display;
+    int puntos[3]={1,0,0};//(nivel,puntos,lineas)
     struct nodo *h = NULL, *l = NULL;
     struct datos pieza, pieza_next;
     
@@ -106,7 +107,8 @@ int main(void)
         print_next(pieza_next);
         print_next(pieza_next);
         al_flip_display();
-        move_pieza(&pieza, 0.25, campo);
+        move_pieza(&pieza, 0.25, campo, puntos);
+        printf("LEVEL:%d  SCORE:%d  LINES:%d\n",puntos[0],puntos[1],puntos[2]);
         pieza = pieza_next;
         pieza_next = prandom(&h);
     }while(marca == 1);
@@ -518,9 +520,9 @@ int cargar_piezas(struct nodo **h)
     return 1;
 }
 
-void move_pieza(struct datos *pieza, double velocidad, int campo[22][12])
+void move_pieza(struct datos *pieza, double velocidad, int campo[22][12],int puntos[3])
 {
-    int marca = 0, v[4], x, y, n = 1;
+    int marca = 0, v[4], x, y, n = 1,i=0;
     ALLEGRO_TIMER *timer;
     ALLEGRO_EVENT_QUEUE *event_queue = al_create_event_queue();
     ALLEGRO_EVENT events;
@@ -669,7 +671,13 @@ void move_pieza(struct datos *pieza, double velocidad, int campo[22][12])
 //                 }
 //                 printf("\n");
 //             }
-            delete_line(campo);
+            i=delete_line(campo);
+            if(i!=0)
+            {
+                puntos[1]=puntos[1]+(puntos[0]*10*i);//puntos
+                puntos[2]=puntos[2]+i;//lineas
+            }
+                
             al_clear_to_color(al_map_rgb(0, 0, 0));
             print_campo(campo);
             al_flip_display();
@@ -686,6 +694,7 @@ void detect_colision(int campo[22][12], int *v, struct datos *pieza)
      {
          v[0] = 1;
      }
+     
      else
      {
          v[0] = 0;
