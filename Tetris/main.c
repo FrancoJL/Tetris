@@ -3,9 +3,14 @@
 #include <allegro5/allegro.h>
 #include <allegro5/allegro_primitives.h>
 #include <allegro5/allegro_image.h>
-#define DIRECTORIO "Graphics/pieza_"
-#define EXTENSION ".png"
-#define UNIDAD 26
+#include <allegro5/allegro_font.h>
+#include <allegro5/allegro_ttf.h>
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <netdb.h>
+#include <arpa/inet.h>
+#define PUERTO 2020
 
 /* 0: Nada
  * 1: Marco
@@ -39,17 +44,21 @@ struct nodo
 int CtoI(char);
 void agregar_nodo(struct nodo **h,struct nodo *aux);
 void init_campo(int campo[22][12]);
-void print_campo(int campo[22][12]);
+void print_campo(int campo[22][12], ALLEGRO_BITMAP *colores[], int);
 int cargar_piezas(struct nodo **);
 void put_pieza_campo(struct datos *, int campo[22][12]);
 void detect_colision(int campo[22][12], int *, struct datos *);
-void move_pieza(struct datos *, double, int campo[22][12],int puntos[3]);
-void print(struct datos *);
-void clear(struct datos *);
+void mover_derecha(struct datos *, int campo[22][12]);
+void mover_izquierda(struct datos *, int campo[22][12]);
+int mover_abajo(struct datos *, int campo[22][12]);
+void rotar_pieza(struct datos *, int campo[22][12]);
+void print(struct datos *, ALLEGRO_BITMAP *colores[]);
+void clear(struct datos *, ALLEGRO_BITMAP *colores[]);
 struct datos prandom(struct nodo **);
 int delete_line(int campo[22][12]);
 int comprobar(struct datos, int campo[22][12]);
-void print_next(struct datos);
+void print_next(struct datos, ALLEGRO_BITMAP *colores[]);
+void descargar_lista(struct nodo **);
 
 int main(void)
 {
@@ -77,218 +86,330 @@ int main(void)
         exit(EXIT_FAILURE);
     }
     
-    int campo[22][12], marca = 1;
+    if(al_init_font_addon() == false)
+    {
+        perror("ERROR");
+        exit(EXIT_FAILURE);
+    }
+    
+    if(al_init_ttf_addon() == false)
+    {
+        perror("ERROR");
+        exit(EXIT_FAILURE);
+    }
+    
+    int campo[22][12], marca = 0, x, y, n = 1, i = 0, flag = 0, marca2 = 0, campo_opp[22][12];
     ALLEGRO_DISPLAY *display;
-    int puntos[3]={1,0,0};//(nivel,puntos,lineas)
+    ALLEGRO_FONT *font = al_load_ttf_font("Font/ka1.ttf", 20, 0);
+    int lineas_totales = 0, puntos = 0, nivel = 1, lineas;
     struct nodo *h = NULL, *l = NULL;
-    struct datos pieza, pieza_next;
+    struct datos pieza, pieza_next, asd;
+    ALLEGRO_BITMAP *colores[9];
+    colores[0] = al_load_bitmap("Graphics/Piezas/clear.png");
+    colores[1] = al_load_bitmap("Graphics/Piezas/pieza_gris.png");
+    colores[2] = al_load_bitmap("Graphics/Piezas/pieza_rojo.png");
+    colores[3] = al_load_bitmap("Graphics/Piezas/pieza_naranja.png");
+    colores[4] = al_load_bitmap("Graphics/Piezas/pieza_amarillo.png");
+    colores[5] = al_load_bitmap("Graphics/Piezas/pieza_verde.png");
+    colores[6] = al_load_bitmap("Graphics/Piezas/pieza_cyan.png");
+    colores[7] = al_load_bitmap("Graphics/Piezas/pieza_azul.png");
+    colores[8] = al_load_bitmap("Graphics/Piezas/pieza_violeta.png");
+    ALLEGRO_TIMER *timer;
+    ALLEGRO_EVENT_QUEUE *event_queue = al_create_event_queue();
+    ALLEGRO_EVENT events;
+    double velocidad = 0.5, auxiliar = 0.5;
+
+    display = al_create_display(960, 600);
     
-    display = al_create_display(800, 600);
-    
+    if(!font)
+    {
+        perror("ERROR");
+        exit(EXIT_FAILURE);
+    }
+        
     cargar_piezas(&h);
     init_campo(campo);
-    
+    al_register_event_source(event_queue, al_get_keyboard_event_source());
     srand(getpid());
-    
     pieza = prandom(&h);
     pieza_next = prandom(&h);
-    print_campo(campo);
-    
+        
     do
     {
-        if(comprobar(pieza, campo) == -1)
-        {
-            marca = 0;
-        }
+        marca = 0;
         put_pieza_campo(&pieza, campo);
-        print_campo(campo);
-        print_next(pieza_next);
-        print_next(pieza_next);
-        print_next(pieza_next);
-        print_next(pieza_next);
+        al_clear_to_color(al_map_rgb(0, 0, 0));
+        print_campo(campo, colores, 0);
+//         print_campo(campo_opp, colores, 20);    //         al_draw_rectangle(370, 100, 510, 240, al_map_rgb(255, 255, 255), 1);
+        print_next(pieza_next, colores);
+        al_draw_text(font, al_map_rgb(255, 255, 255), 380, 50, ALLEGRO_ALIGN_LEFT, "PROXIMO:");
+        al_draw_textf(font, al_map_rgb(255, 255, 255), 380, 250, ALLEGRO_ALIGN_LEFT, "NIVEL: %d", nivel);
+        al_draw_textf(font, al_map_rgb(255, 255, 255), 380, 300, ALLEGRO_ALIGN_LEFT, "LINEAS:%d", lineas_totales);
+        al_draw_textf(font, al_map_rgb(255, 255, 255), 380, 350, ALLEGRO_ALIGN_LEFT, "PUNTOS:%d", puntos);
         al_flip_display();
-        move_pieza(&pieza, 0.25, campo, puntos);
-        printf("LEVEL:%d  SCORE:%d  LINES:%d\n",puntos[0],puntos[1],puntos[2]);
+        lineas = 0;
+        while(marca == 0)
+        {
+            timer = al_create_timer(velocidad);
+            al_set_timer_count(timer, 0);
+            al_start_timer(timer);
+            
+            while(al_get_timer_count(timer) < 1)
+            {
+                al_get_next_event(event_queue, &events);
+        
+                if(events.type == ALLEGRO_EVENT_KEY_UP)
+                {
+                    if(events.keyboard.keycode == ALLEGRO_KEY_DOWN)
+                    {
+                        velocidad = auxiliar;
+                        marca2 = 0;
+                    }
+                }
+                if(events.type == ALLEGRO_EVENT_KEY_DOWN)
+                {
+                    clear(&pieza, colores);
+                    switch(events.keyboard.keycode)
+                    {
+                        case ALLEGRO_KEY_RIGHT: 
+                            mover_derecha(&pieza, campo);
+                            break;
+                            
+                        case ALLEGRO_KEY_LEFT:
+                            mover_izquierda(&pieza, campo);
+                            break;
+                            
+                        case ALLEGRO_KEY_UP:
+                            rotar_pieza(&pieza, campo);
+                            break;
+                                
+                        case ALLEGRO_KEY_DOWN:
+                            if(marca2 == 0)
+                            {
+                                auxiliar = velocidad;
+                                velocidad = 0.05;
+                                marca2 = 1;
+                                al_set_timer_count(timer, 2);
+                            }
+                            break;
+                            
+                        default: break;
+                    }
+                    print(&pieza, colores);
+                    al_flip_display();
+                }
+            }
+            al_stop_timer(timer);
+                
+            clear(&pieza, colores);
+            marca = mover_abajo(&pieza, campo);
+            if(marca == 1)
+            {
+                lineas = delete_line(campo);
+            }
+            print(&pieza, colores);
+            al_flip_display();
+        }
+        lineas_totales = lineas_totales + lineas;
+        puntos = puntos + (lineas*10*nivel);
+        if((lineas_totales != 0) && (lineas_totales >= nivel*10) && (lineas != 0))
+        {
+            nivel = nivel + 1;
+            velocidad = velocidad - 0.5;
+        }
         pieza = pieza_next;
         pieza_next = prandom(&h);
-    }while(marca == 1);
+        if(comprobar(pieza, campo) == -1)
+        {
+            flag = 1;
+        }
+    }while(flag == 0);
     
+    
+    close(fd);
+    descargar_lista(&h);
+    al_destroy_event_queue(event_queue);
+    al_destroy_timer(timer);
+    for(i = 0; i < 9; i++)
+    {
+        al_destroy_bitmap(colores[i]);
+    }
     al_destroy_display(display);
     
     exit(EXIT_SUCCESS);
 }
 
- void rotar_pieza(struct datos *pieza, int campo[22][12])
- {
-     int i,marca , j = 0, m = 0;
-     int aux[8], v[8], aux2[3][2];
+void rotar_pieza(struct datos *pieza, int campo[22][12])
+{
+    int i,marca , j = 0, m = 0;
+    int aux[8], v[8], aux2[3][2];
          
-     if(pieza->nombre != 'I' && pieza->nombre != 'O')
-     {
-         v[0]=campo[pieza->centro_pos[1]-1][pieza->centro_pos[0]-1];
-         v[1]=campo[pieza->centro_pos[1]-1][pieza->centro_pos[0]];
-         v[2]=campo[pieza->centro_pos[1]-1][pieza->centro_pos[0]+1];
-         v[3]=campo[pieza->centro_pos[1]][pieza->centro_pos[0]+1];
-         v[4]=campo[pieza->centro_pos[1]+1][pieza->centro_pos[0]+1];
-         v[5]=campo[pieza->centro_pos[1]+1][pieza->centro_pos[0]];
-         v[6]=campo[pieza->centro_pos[1]+1][pieza->centro_pos[0]-1];
-         v[7]=campo[pieza->centro_pos[1]][pieza->centro_pos[0]-1];
+    if(pieza->nombre != 'I' && pieza->nombre != 'O')
+    {
+        v[0]=campo[pieza->centro_pos[1]-1][pieza->centro_pos[0]-1];
+        v[1]=campo[pieza->centro_pos[1]-1][pieza->centro_pos[0]];
+        v[2]=campo[pieza->centro_pos[1]-1][pieza->centro_pos[0]+1];
+        v[3]=campo[pieza->centro_pos[1]][pieza->centro_pos[0]+1];
+        v[4]=campo[pieza->centro_pos[1]+1][pieza->centro_pos[0]+1];
+        v[5]=campo[pieza->centro_pos[1]+1][pieza->centro_pos[0]];
+        v[6]=campo[pieza->centro_pos[1]+1][pieza->centro_pos[0]-1];
+        v[7]=campo[pieza->centro_pos[1]][pieza->centro_pos[0]-1];
             
-         for(i = 0; i < 8; i++)
-         {
-             if(v[i] > 1)
-             {
-                 switch(i)
-                 {
-                     case 6:
-                     if(v[7] <= -2 || v[0] <= -2 || v[7] == 1 || v[0] == 1)
-                     {
-                         marca = 0;
-                         i = 8;
-                     }
-                     else
-                     {
-                         marca = 1;
-                     }
-                     break;
+        for(i = 0; i < 8; i++)
+        {
+            if(v[i] > 1)
+            {
+                switch(i)
+                {
+                    case 6:
+                    if(v[7] <= -2 || v[0] <= -2 || v[7] == 1 || v[0] == 1)
+                    {
+                        marca = 0;
+                        i = 8;
+                    }
+                    else
+                    {
+                        marca = 1;
+                    }
+                    break;
                      
-                     case 7:
-                     if(v[0] <= -2 || v[1] <= -2 || v[0] == 1 || v[1] == 1)
-                     {
-                         marca = 0;
-                         i = 8;
-                     }
-                     else
-                     {
-                         marca = 1;
-                     }
-                     break;
+                    case 7:
+                    if(v[0] <= -2 || v[1] <= -2 || v[0] == 1 || v[1] == 1)
+                    {
+                        marca = 0;
+                        i = 8;
+                    }
+                    else
+                    {
+                        marca = 1;
+                    }
+                    break;
                         
-                     default:
-                     if(v[i+1] <= -2 || v[i+2] <= -2 || v[i+1] == 1 || v[i+2] == 1)
-                     {
-                         marca = 0;
-                         i = 8;
-                     }
-                     else
-                     {
-                         marca = 1;
-                     }
-                     break;
-                 }
-             }
-         }
+                    default:
+                    if(v[i+1] <= -2 || v[i+2] <= -2 || v[i+1] == 1 || v[i+2] == 1)
+                    {
+                        marca = 0;
+                        i = 8;
+                    }
+                    else
+                    {
+                        marca = 1;
+                    }
+                    break;
+                }
+            }
+        }
             
-         if(marca == 1)//si marca es igual a 1 entonces puede rotar,si es igual a 0 no puede
-         {
-             if(v[0] > 1)
-                 aux[2] = v[0];
-             else
-                 aux[2] = 0;
-             if(v[1] > 1)
-                 aux[3] = v[1];
-             else
-                 aux[3] = 0;
-             if(v[2] > 1)
-                 aux[4] = v[2];
-             else
-                 aux[4] = 0;
-             if(v[3] > 1)
-                 aux[5] = v[3];
-             else
-                 aux[5] = 0;
-             if(v[4] > 1)
-                 aux[6] = v[4];
-             else
-                 aux[6] = 0;
-             if(v[5] > 1)
-                 aux[7] = v[5];
-             else
-                 aux[7] = 0;
-             if(v[6] > 1)
-                 aux[0] = v[6];
-             else
-                 aux[0] = 0;
-             if(v[7] > 1)
-                 aux[1] = v[7];
-             else
-                 aux[1] = 0;
+        if(marca == 1)//si marca es igual a 1 entonces puede rotar,si es igual a 0 no puede
+        {
+            if(v[0] > 1)
+                aux[2] = v[0];
+            else
+                aux[2] = 0;
+            if(v[1] > 1)
+                aux[3] = v[1];
+            else
+                aux[3] = 0;
+            if(v[2] > 1)
+                aux[4] = v[2];
+            else
+                aux[4] = 0;
+            if(v[3] > 1)
+                aux[5] = v[3];
+            else
+                aux[5] = 0;
+            if(v[4] > 1)
+                aux[6] = v[4];
+            else
+                aux[6] = 0;
+            if(v[5] > 1)
+                aux[7] = v[5];
+            else
+                aux[7] = 0;
+            if(v[6] > 1)
+                aux[0] = v[6];
+            else
+                aux[0] = 0;
+            if(v[7] > 1)
+                aux[1] = v[7];
+            else
+                aux[1] = 0;
                 
-             for(i = 0; i < 8; i++)
-             {
-                 if(v[i] <= -2)
-                 {
-                     aux[i] = v[i];
-                 }
-                 else if(v[i] == 1)
-                 {
-                     aux[i] = 1;
-                 }
-             }
+            for(i = 0; i < 8; i++)
+            {
+                if(v[i] <= -2)
+                {
+                    aux[i] = v[i];
+                }
+                else if(v[i] == 1)
+                {
+                    aux[i] = 1;
+                }
+            }
                 
-             campo[pieza->centro_pos[1]-1][pieza->centro_pos[0]-1] = aux[0];
-             if(aux[0] >= 2)
-             {
-                 aux2[j][0] = pieza->centro_pos[0]-1;
-                 aux2[j][1] = pieza->centro_pos[1]-1;
-                 j++;
-             }
-             campo[pieza->centro_pos[1]-1][pieza->centro_pos[0]] = aux[1];
-             if(aux[1] >= 2)
-             {
-                 aux2[j][0] = pieza->centro_pos[0];
-                 aux2[j][1] = pieza->centro_pos[1]-1;
-                 j++;
-             }
-             campo[pieza->centro_pos[1]-1][pieza->centro_pos[0]+1] = aux[2];
-             if(aux[2] >= 2)
-             {
-                 aux2[j][0] = pieza->centro_pos[0]+1;
-                 aux2[j][1] = pieza->centro_pos[1]-1;
-                 j++;
-             }
-             campo[pieza->centro_pos[1]][pieza->centro_pos[0]+1] = aux[3];
-             if(aux[3] >= 2)
-             {
-                 aux2[j][0] = pieza->centro_pos[0]+1;
-                 aux2[j][1] = pieza->centro_pos[1];
-                 j++;
-             }
-             campo[pieza->centro_pos[1]+1][pieza->centro_pos[0]+1] = aux[4];
-             if(aux[4] >= 2)
-             {
-                 aux2[j][0] = pieza->centro_pos[0]+1;
-                 aux2[j][1] = pieza->centro_pos[1]+1;
-                 j++;
-             }
-             campo[pieza->centro_pos[1]+1][pieza->centro_pos[0]] = aux[5];
-             if(aux[5] >= 2)
-             {
-                 aux2[j][0] = pieza->centro_pos[0];
-                 aux2[j][1] = pieza->centro_pos[1]+1;
-                 j++;
-             }
-             campo[pieza->centro_pos[1]+1][pieza->centro_pos[0]-1] = aux[6];
-             if(aux[6] >= 2)
-             {
-                 aux2[j][0] = pieza->centro_pos[0]-1;
-                 aux2[j][1] = pieza->centro_pos[1]+1;
-                 j++;
-             }
-             campo[pieza->centro_pos[1]][pieza->centro_pos[0]-1] = aux[7];
-             if(aux[7] >= 2)
-             {
-                 aux2[j][0] = pieza->centro_pos[0]-1;
-                 aux2[j][1] = pieza->centro_pos[1];
-                 j++;
-             }
+            campo[pieza->centro_pos[1]-1][pieza->centro_pos[0]-1] = aux[0];
+            if(aux[0] >= 2)
+            {
+                aux2[j][0] = pieza->centro_pos[0]-1;
+                aux2[j][1] = pieza->centro_pos[1]-1;
+                j++;
+            }
+            campo[pieza->centro_pos[1]-1][pieza->centro_pos[0]] = aux[1];
+            if(aux[1] >= 2)
+            {
+                aux2[j][0] = pieza->centro_pos[0];
+                aux2[j][1] = pieza->centro_pos[1]-1;
+                j++;
+            }
+            campo[pieza->centro_pos[1]-1][pieza->centro_pos[0]+1] = aux[2];
+            if(aux[2] >= 2)
+            {
+                aux2[j][0] = pieza->centro_pos[0]+1;
+                aux2[j][1] = pieza->centro_pos[1]-1;
+                j++;
+            }
+            campo[pieza->centro_pos[1]][pieza->centro_pos[0]+1] = aux[3];
+            if(aux[3] >= 2)
+            {
+                aux2[j][0] = pieza->centro_pos[0]+1;
+                aux2[j][1] = pieza->centro_pos[1];
+                j++;
+            }
+            campo[pieza->centro_pos[1]+1][pieza->centro_pos[0]+1] = aux[4];
+            if(aux[4] >= 2)
+            {
+                aux2[j][0] = pieza->centro_pos[0]+1;
+                aux2[j][1] = pieza->centro_pos[1]+1;
+                j++;
+            }
+            campo[pieza->centro_pos[1]+1][pieza->centro_pos[0]] = aux[5];
+            if(aux[5] >= 2)
+            {
+                aux2[j][0] = pieza->centro_pos[0];
+                aux2[j][1] = pieza->centro_pos[1]+1;
+                j++;
+            }
+            campo[pieza->centro_pos[1]+1][pieza->centro_pos[0]-1] = aux[6];
+            if(aux[6] >= 2)
+            {
+                aux2[j][0] = pieza->centro_pos[0]-1;
+                aux2[j][1] = pieza->centro_pos[1]+1;
+                j++;
+            }
+            campo[pieza->centro_pos[1]][pieza->centro_pos[0]-1] = aux[7];
+            if(aux[7] >= 2)
+            {
+                aux2[j][0] = pieza->centro_pos[0]-1;
+                aux2[j][1] = pieza->centro_pos[1];
+                j++;
+            }
                 
-             pieza->periferico_1_pos[0] = aux2[0][0];
-             pieza->periferico_1_pos[1] = aux2[0][1];
-             pieza->periferico_2_pos[0] = aux2[1][0];
-             pieza->periferico_2_pos[1] = aux2[1][1];
-             pieza->periferico_3_pos[0] = aux2[2][0];
-             pieza->periferico_3_pos[1] = aux2[2][1];
+            pieza->periferico_1_pos[0] = aux2[0][0];
+            pieza->periferico_1_pos[1] = aux2[0][1];
+            pieza->periferico_2_pos[0] = aux2[1][0];
+            pieza->periferico_2_pos[1] = aux2[1][1];
+            pieza->periferico_3_pos[0] = aux2[2][0];
+            pieza->periferico_3_pos[1] = aux2[2][1];
         }
     }
     else
@@ -337,6 +458,7 @@ int main(void)
             }
         }
     }
+    put_pieza_campo(pieza, campo);
 }
 
 int CtoI(char a)
@@ -375,6 +497,18 @@ void agregar_nodo(struct nodo **h,struct nodo *aux)
     }
 }
 
+void descargar_lista(struct nodo **h)
+{
+    struct nodo *aux, *aux2;
+    
+    for(aux = *h, aux2 = aux->next; aux->next != NULL; aux2 = aux2->next)
+    {
+        free(aux);
+        aux = aux2;
+    }
+    free(aux);
+}
+
 void init_campo(int campo[22][12])
 {
     int i, j;
@@ -396,10 +530,8 @@ void init_campo(int campo[22][12])
     }
 }
 
-void print_campo(int campo[22][12])
+void print_campo(int campo[22][12], ALLEGRO_BITMAP *colores[8], int x)
 {
-    ALLEGRO_DISPLAY *display;
-    ALLEGRO_BITMAP *bitmap;
     int i, j;
     
     for(j = 0; j < 22; j++)
@@ -408,70 +540,70 @@ void print_campo(int campo[22][12])
         {
             switch(campo[j][i])
             {
-                case 1: bitmap = al_load_bitmap("Graphics/pieza_limite.png");
-                        al_draw_bitmap(bitmap, i*26, j*26, 0);
-                        break;
+                case 1: 
+                    al_draw_bitmap(colores[1], i*26+(26*x), j*26, 0);
+                    break;
                         
-                case 2: bitmap = al_load_bitmap("Graphics/pieza_rojo.png");
-                        al_draw_bitmap(bitmap, i*26, j*26, 0);
-                        break;
+                case 2: 
+                    al_draw_bitmap(colores[2], i*26+(26*x), j*26, 0);
+                    break;
                     
-                case 3: bitmap = al_load_bitmap("Graphics/pieza_naranja.png");
-                        al_draw_bitmap(bitmap, i*26, j*26, 0);
-                        break;
+                case 3:
+                    al_draw_bitmap(colores[3], i*26+(26*x), j*26, 0);
+                    break;
                         
-                case 4: bitmap = al_load_bitmap("Graphics/pieza_amarillo.png");
-                        al_draw_bitmap(bitmap, i*26, j*26, 0);
-                        break;
+                case 4:
+                    al_draw_bitmap(colores[4], i*26+(26*x), j*26, 0);
+                    break;
                         
-                case 5: bitmap = al_load_bitmap("Graphics/pieza_verde.png");
-                        al_draw_bitmap(bitmap, i*26, j*26, 0);
-                        break;
+                case 5:
+                    al_draw_bitmap(colores[5], i*26+(26*x), j*26, 0);
+                    break;
                         
-                case 6: bitmap = al_load_bitmap("Graphics/pieza_cyan.png");
-                        al_draw_bitmap(bitmap, i*26, j*26, 0);
-                        break;
+                case 6:
+                    al_draw_bitmap(colores[6], i*26+(26*x), j*26, 0);
+                    break;
                         
-                case 7: bitmap = al_load_bitmap("Graphics/pieza_azul.png");
-                        al_draw_bitmap(bitmap, i*26, j*26, 0);
-                        break;
+                case 7:
+                    al_draw_bitmap(colores[7], i*26+(26*x), j*26, 0);
+                    break;
                         
-                case 8: bitmap = al_load_bitmap("Graphics/pieza_violeta.png");
-                        al_draw_bitmap(bitmap, i*26, j*26, 0);
-                        break;
+                case 8:
+                    al_draw_bitmap(colores[8], i*26+(26*x), j*26, 0);
+                    break;
                         
-                case -2: bitmap = al_load_bitmap("Graphics/pieza_rojo.png");
-                        al_draw_bitmap(bitmap, i*26, j*26, 0);
-                        break;
+                case -2:
+                    al_draw_bitmap(colores[2], i*26+(26*x), j*26, 0);
+                    break;
                     
-                case -3: bitmap = al_load_bitmap("Graphics/pieza_naranja.png");
-                        al_draw_bitmap(bitmap, i*26, j*26, 0);
-                        break;
+                case -3:
+                    al_draw_bitmap(colores[3], i*26+(26*x), j*26, 0);
+                    break;
                         
-                case -4: bitmap = al_load_bitmap("Graphics/pieza_amarillo.png");
-                        al_draw_bitmap(bitmap, i*26, j*26, 0);
-                        break;
+                case -4:
+                    al_draw_bitmap(colores[4], i*26+(26*x), j*26, 0);
+                    break;
                         
-                case -5: bitmap = al_load_bitmap("Graphics/pieza_verde.png");
-                        al_draw_bitmap(bitmap, i*26, j*26, 0);
-                        break;
+                case -5:
+                    al_draw_bitmap(colores[5], i*26+(26*x), j*26, 0);
+                    break;
                         
-                case -6: bitmap = al_load_bitmap("Graphics/pieza_cyan.png");
-                        al_draw_bitmap(bitmap, i*26, j*26, 0);
-                        break;
+                case -6:
+                    al_draw_bitmap(colores[6], i*26+(26*x), j*26, 0);
+                    break;
+                    
+                case -7:
+                    al_draw_bitmap(colores[7], i*26+(26*x), j*26, 0);
+                    break;
                         
-                case -7: bitmap = al_load_bitmap("Graphics/pieza_azul.png");
-                        al_draw_bitmap(bitmap, i*26, j*26, 0);
-                        break;
+                case -8:
+                    al_draw_bitmap(colores[8], i*26+(26*x), j*26, 0);
+                    break;
                         
-                case -8: bitmap = al_load_bitmap("Graphics/pieza_violeta.png");
-                        al_draw_bitmap(bitmap, i*26, j*26, 0);
-                        break;
+                default: break;
             }
         }
     }
-    al_flip_display();
-    al_destroy_bitmap(bitmap);
 }
 
 int cargar_piezas(struct nodo **h)
@@ -520,44 +652,22 @@ int cargar_piezas(struct nodo **h)
     return 1;
 }
 
-void move_pieza(struct datos *pieza, double velocidad, int campo[22][12],int puntos[3])
+void mover_derecha(struct datos *pieza, int campo[22][12])
 {
-    int marca = 0, v[4], x, y, n = 1,i=0;
-    ALLEGRO_TIMER *timer;
-    ALLEGRO_EVENT_QUEUE *event_queue = al_create_event_queue();
-    ALLEGRO_EVENT events;
-    ALLEGRO_KEYBOARD_STATE state;
+    int v[4];
     
-    al_register_event_source(event_queue, al_get_keyboard_event_source());
-    
-    while(marca == 0)
+    detect_colision(campo, v, pieza);
+    if(v[2] == 0)
     {
-        timer = al_create_timer(velocidad);
-        al_set_timer_count(timer, 0);
-        al_start_timer(timer);
-        while(al_get_timer_count(timer) < 1)
-        {
-            al_get_next_event(event_queue, &events);
-            if(events.type == ALLEGRO_EVENT_KEY_DOWN)
-            {
-                
-                if(events.keyboard.keycode == ALLEGRO_KEY_RIGHT)
-                {
-                    detect_colision(campo, v, pieza);
-                    if(v[2] == 0)
-                    {
-                        campo[pieza->centro_pos[1]][pieza->centro_pos[0]] = 0;
-                        campo[pieza->periferico_1_pos[1]][pieza->periferico_1_pos[0]] = 0;
-                        campo[pieza->periferico_2_pos[1]][pieza->periferico_2_pos[0]] = 0;
-                        campo[pieza->periferico_3_pos[1]][pieza->periferico_3_pos[0]] = 0;
-                        clear(pieza);
-                        pieza->centro_pos[0] += 1;
-                        pieza->periferico_1_pos[0] += 1;
-                        pieza->periferico_2_pos[0] += 1;
-                        pieza->periferico_3_pos[0] += 1;
-                        put_pieza_campo(pieza, campo);
-                        print(pieza);
-                        al_flip_display();
+        campo[pieza->centro_pos[1]][pieza->centro_pos[0]] = 0;
+        campo[pieza->periferico_1_pos[1]][pieza->periferico_1_pos[0]] = 0;
+        campo[pieza->periferico_2_pos[1]][pieza->periferico_2_pos[0]] = 0;
+        campo[pieza->periferico_3_pos[1]][pieza->periferico_3_pos[0]] = 0;
+        pieza->centro_pos[0] += 1;
+        pieza->periferico_1_pos[0] += 1;
+        pieza->periferico_2_pos[0] += 1;
+        pieza->periferico_3_pos[0] += 1;
+        put_pieza_campo(pieza, campo);
 //                         for(y = 0; y < 22; y++)
 //                         {
 //                             for(x = 0; x < 12; x++)
@@ -566,25 +676,25 @@ void move_pieza(struct datos *pieza, double velocidad, int campo[22][12],int pun
 //                             }
 //                             printf("\n");
 //                         }
-                    }
-                }
-                if(events.keyboard.keycode == ALLEGRO_KEY_LEFT)
-                {
-                    detect_colision(campo, v, pieza);
-                    if(v[0] == 0)
-                    {
-                        campo[pieza->centro_pos[1]][pieza->centro_pos[0]] = 0;
-                        campo[pieza->periferico_1_pos[1]][pieza->periferico_1_pos[0]] = 0;
-                        campo[pieza->periferico_2_pos[1]][pieza->periferico_2_pos[0]] = 0;
-                        campo[pieza->periferico_3_pos[1]][pieza->periferico_3_pos[0]] = 0;
-                        clear(pieza);
-                        pieza->centro_pos[0] -= 1;
-                        pieza->periferico_1_pos[0] -= 1;
-                        pieza->periferico_2_pos[0] -= 1;
-                        pieza->periferico_3_pos[0] -= 1;
-                        put_pieza_campo(pieza, campo);
-                        print(pieza);
-                        al_flip_display();
+    }
+}
+
+void mover_izquierda(struct datos *pieza, int campo[22][12])
+{
+    int v[4];
+    
+    detect_colision(campo, v, pieza);
+    if(v[0] == 0)
+    {
+        campo[pieza->centro_pos[1]][pieza->centro_pos[0]] = 0;
+        campo[pieza->periferico_1_pos[1]][pieza->periferico_1_pos[0]] = 0;
+        campo[pieza->periferico_2_pos[1]][pieza->periferico_2_pos[0]] = 0;
+        campo[pieza->periferico_3_pos[1]][pieza->periferico_3_pos[0]] = 0;
+        pieza->centro_pos[0] -= 1;
+        pieza->periferico_1_pos[0] -= 1;
+        pieza->periferico_2_pos[0] -= 1;
+        pieza->periferico_3_pos[0] -= 1;
+        put_pieza_campo(pieza, campo);
 //                         for(y = 0; y < 22; y++)
 //                         {
 //                             for(x = 0; x < 12; x++)
@@ -594,59 +704,27 @@ void move_pieza(struct datos *pieza, double velocidad, int campo[22][12],int pun
 //                             printf("\n");
 //                                                     
 //                         }
-                    }
-                }
-                if(events.keyboard.keycode == ALLEGRO_KEY_UP)
-                {
-                    clear(pieza);
-                    rotar_pieza(pieza,campo);
-//                     for(y = 0; y < 22; y++)
-//                     {
-//                         for(x = 0; x < 12; x++)
-//                         {
-//                             printf("%d", campo[y][x]);
-//                         }
-//                         printf("\n");
-//                     }
-                    put_pieza_campo(pieza, campo);
-                    print(pieza);
-                    al_flip_display();
-                }
-                if(events.keyboard.keycode == ALLEGRO_KEY_DOWN)
-                {
-                    do
-                    {
-                        al_get_keyboard_state(&state);
-                        if(al_key_down(&state, ALLEGRO_KEY_DOWN) == true)
-                        {
-                            n = 0;
-                            velocidad = 0.03;
-                        }
-                        else
-                        {
-                            n = 1;
-                        }
-                    }while(n == 1);
-                }
-             }
-         }
-         al_stop_timer(timer);
+    }
+}
+
+int mover_abajo(struct datos *pieza, int campo[22][12])
+{
+    int v[4], i;
+    
+    detect_colision(campo, v, pieza);
         
-        detect_colision(campo, v, pieza);
-        if(v[1] == 0)
-        {
+    if(v[1] == 0)
+    {
+        i = 0;
         campo[pieza->centro_pos[1]][pieza->centro_pos[0]] = 0;
         campo[pieza->periferico_1_pos[1]][pieza->periferico_1_pos[0]] = 0;
         campo[pieza->periferico_2_pos[1]][pieza->periferico_2_pos[0]] = 0;
         campo[pieza->periferico_3_pos[1]][pieza->periferico_3_pos[0]] = 0;
-        clear(pieza);
         pieza->centro_pos[1] += 1;
         pieza->periferico_1_pos[1] += 1;
         pieza->periferico_2_pos[1] += 1;
         pieza->periferico_3_pos[1] += 1;
         put_pieza_campo(pieza, campo);
-        print(pieza);
-        al_flip_display();
 //         for(y = 0; y < 22; y++)
 //         {
 //             for(x = 0; x < 12; x++)
@@ -655,14 +733,14 @@ void move_pieza(struct datos *pieza, double velocidad, int campo[22][12],int pun
 //             }
 //             printf("\n");
 //         }
-        }
-        else
-        {
-            marca = 1;
-            campo[pieza->centro_pos[1]][pieza->centro_pos[0]] = -(campo[pieza->centro_pos[1]][pieza->centro_pos[0]]);
-            campo[pieza->periferico_1_pos[1]][pieza->periferico_1_pos[0]] = -(campo[pieza->periferico_1_pos[1]][pieza->periferico_1_pos[0]]);
-            campo[pieza->periferico_2_pos[1]][pieza->periferico_2_pos[0]] = -(campo[pieza->periferico_2_pos[1]][pieza->periferico_2_pos[0]]);
-            campo[pieza->periferico_3_pos[1]][pieza->periferico_3_pos[0]] = -(campo[pieza->periferico_3_pos[1]][pieza->periferico_3_pos[0]]);
+    }
+    else
+    {
+        i = 1;
+        campo[pieza->centro_pos[1]][pieza->centro_pos[0]] = -(campo[pieza->centro_pos[1]][pieza->centro_pos[0]]);
+        campo[pieza->periferico_1_pos[1]][pieza->periferico_1_pos[0]] = -(campo[pieza->periferico_1_pos[1]][pieza->periferico_1_pos[0]]);
+        campo[pieza->periferico_2_pos[1]][pieza->periferico_2_pos[0]] = -(campo[pieza->periferico_2_pos[1]][pieza->periferico_2_pos[0]]);
+        campo[pieza->periferico_3_pos[1]][pieza->periferico_3_pos[0]] = -(campo[pieza->periferico_3_pos[1]][pieza->periferico_3_pos[0]]);
 //             for(y = 0; y < 22; y++)
 //             {
 //                 for(x = 0; x < 12; x++)
@@ -671,21 +749,8 @@ void move_pieza(struct datos *pieza, double velocidad, int campo[22][12],int pun
 //                 }
 //                 printf("\n");
 //             }
-            i=delete_line(campo);
-            if(i!=0)
-            {
-                puntos[1]=puntos[1]+(puntos[0]*10*i);//puntos
-                puntos[2]=puntos[2]+i;//lineas
-            }
-                
-            al_clear_to_color(al_map_rgb(0, 0, 0));
-            print_campo(campo);
-            al_flip_display();
-        }
     }
-    al_destroy_event_queue(event_queue);
-    al_destroy_timer(timer);
-    
+    return i;
 }
 
 void detect_colision(int campo[22][12], int *v, struct datos *pieza)
@@ -788,72 +853,109 @@ void put_pieza_campo(struct datos *pieza, int campo[22][12])
     campo[pieza->periferico_3_pos[1]][pieza->periferico_3_pos[0]] = i;
 }
 
-void clear(struct datos *pieza)
+void clear(struct datos *pieza, ALLEGRO_BITMAP *colores[8])
 {
-    ALLEGRO_BITMAP *bitmap;
-    
-    bitmap = al_load_bitmap("Graphics/clear.png");
-    
-    al_draw_bitmap(bitmap, pieza->centro_pos[0]*26, pieza->centro_pos[1]*26, 0);
-    al_draw_bitmap(bitmap, pieza->periferico_1_pos[0]*26, pieza->periferico_1_pos[1]*26, 0);
-    al_draw_bitmap(bitmap, pieza->periferico_2_pos[0]*26, pieza->periferico_2_pos[1]*26, 0);
-    al_draw_bitmap(bitmap, pieza->periferico_3_pos[0]*26, pieza->periferico_3_pos[1]*26, 0);
-    
-    al_destroy_bitmap(bitmap);
+    al_draw_bitmap(colores[0], pieza->centro_pos[0]*26, pieza->centro_pos[1]*26, 0);
+    al_draw_bitmap(colores[0], pieza->periferico_1_pos[0]*26, pieza->periferico_1_pos[1]*26, 0);
+    al_draw_bitmap(colores[0], pieza->periferico_2_pos[0]*26, pieza->periferico_2_pos[1]*26, 0);
+    al_draw_bitmap(colores[0], pieza->periferico_3_pos[0]*26, pieza->periferico_3_pos[1]*26, 0);
 }
 
-void print(struct datos *pieza)
+void print(struct datos *pieza, ALLEGRO_BITMAP *colores[8])
 {
-    ALLEGRO_BITMAP *bitmap;
+    int i;
     
     if(strcmp(pieza->color, "rojo") == 0)
-        bitmap = al_load_bitmap("Graphics/pieza_rojo.png");
+        i = 2;
     if(strcmp(pieza->color, "naranja") == 0)
-        bitmap = al_load_bitmap("Graphics/pieza_naranja.png");
+        i = 3;
     if(strcmp(pieza->color, "amarillo") == 0)
-        bitmap = al_load_bitmap("Graphics/pieza_amarillo.png");
+        i = 4;
     if(strcmp(pieza->color, "verde") == 0)
-        bitmap = al_load_bitmap("Graphics/pieza_verde.png");
+        i = 5;
     if(strcmp(pieza->color, "cyan") == 0)
-        bitmap = al_load_bitmap("Graphics/pieza_cyan.png");
+        i = 6;
     if(strcmp(pieza->color, "azul") == 0)
-        bitmap = al_load_bitmap("Graphics/pieza_azul.png");
+        i = 7;
     if(strcmp(pieza->color, "violeta") == 0)
-        bitmap = al_load_bitmap("Graphics/pieza_violeta.png");
+        i = 8;
     
-    al_draw_bitmap(bitmap, pieza->centro_pos[0]*26, pieza->centro_pos[1]*26, 0);
-    al_draw_bitmap(bitmap, pieza->periferico_1_pos[0]*26, pieza->periferico_1_pos[1]*26, 0);
-    al_draw_bitmap(bitmap, pieza->periferico_2_pos[0]*26, pieza->periferico_2_pos[1]*26, 0);
-    al_draw_bitmap(bitmap, pieza->periferico_3_pos[0]*26, pieza->periferico_3_pos[1]*26, 0);
- 
-    al_destroy_bitmap(bitmap);
+    al_draw_bitmap(colores[i], pieza->centro_pos[0]*26, pieza->centro_pos[1]*26, 0);
+    al_draw_bitmap(colores[i], pieza->periferico_1_pos[0]*26, pieza->periferico_1_pos[1]*26, 0);
+    al_draw_bitmap(colores[i], pieza->periferico_2_pos[0]*26, pieza->periferico_2_pos[1]*26, 0);
+    al_draw_bitmap(colores[i], pieza->periferico_3_pos[0]*26, pieza->periferico_3_pos[1]*26, 0);
 }
 
-void print_next(struct datos pieza)
+void print_next(struct datos pieza, ALLEGRO_BITMAP *colores[8])
 {
-    ALLEGRO_BITMAP *bitmap;
+    int i;
     
     if(strcmp(pieza.color, "rojo") == 0)
-        bitmap = al_load_bitmap("Graphics/pieza_rojo.png");
+        i = 2;
     if(strcmp(pieza.color, "naranja") == 0)
-        bitmap = al_load_bitmap("Graphics/pieza_naranja.png");
+        i = 3;
     if(strcmp(pieza.color, "amarillo") == 0)
-        bitmap = al_load_bitmap("Graphics/pieza_amarillo.png");
+        i = 4;
     if(strcmp(pieza.color, "verde") == 0)
-        bitmap = al_load_bitmap("Graphics/pieza_verde.png");
+        i = 5;
     if(strcmp(pieza.color, "cyan") == 0)
-        bitmap = al_load_bitmap("Graphics/pieza_cyan.png");
+        i = 6;
     if(strcmp(pieza.color, "azul") == 0)
-        bitmap = al_load_bitmap("Graphics/pieza_azul.png");
+        i = 7;
     if(strcmp(pieza.color, "violeta") == 0)
-        bitmap = al_load_bitmap("Graphics/pieza_violeta.png");
+        i = 8;
     
-    al_draw_bitmap(bitmap, (pieza.centro_pos[0]*26)+(26*10), pieza.centro_pos[1]*26+(26*3), 0);
-    al_draw_bitmap(bitmap, (pieza.periferico_1_pos[0]*26)+(26*10), pieza.periferico_1_pos[1]*26+(26*3), 0);
-    al_draw_bitmap(bitmap, (pieza.periferico_2_pos[0]*26)+(26*10), pieza.periferico_2_pos[1]*26+(26*3), 0);
-    al_draw_bitmap(bitmap, (pieza.periferico_3_pos[0]*26)+(26*10), pieza.periferico_3_pos[1]*26+(26*3), 0);
- 
-    al_destroy_bitmap(bitmap);
+    switch(pieza.nombre)
+    {
+        case 'O':
+            al_draw_bitmap(colores[i], (pieza.centro_pos[0]*26)+270, pieza.centro_pos[1]*26+130, 0);
+            al_draw_bitmap(colores[i], (pieza.periferico_1_pos[0]*26)+270, pieza.periferico_1_pos[1]*26+130, 0);
+            al_draw_bitmap(colores[i], (pieza.periferico_2_pos[0]*26)+270, pieza.periferico_2_pos[1]*26+130, 0);
+            al_draw_bitmap(colores[i], (pieza.periferico_3_pos[0]*26)+270, pieza.periferico_3_pos[1]*26+130, 0);
+            break;
+            
+        case 'L':
+            al_draw_bitmap(colores[i], (pieza.centro_pos[0]*26)+(26*10), pieza.centro_pos[1]*26+(26*3), 0);
+            al_draw_bitmap(colores[i], (pieza.periferico_1_pos[0]*26)+(26*10), pieza.periferico_1_pos[1]*26+(26*3), 0);
+            al_draw_bitmap(colores[i], (pieza.periferico_2_pos[0]*26)+(26*10), pieza.periferico_2_pos[1]*26+(26*3), 0);
+            al_draw_bitmap(colores[i], (pieza.periferico_3_pos[0]*26)+(26*10), pieza.periferico_3_pos[1]*26+(26*3), 0);
+            break;
+            
+        case 'J':
+            al_draw_bitmap(colores[i], (pieza.centro_pos[0]*26)+(26*10), pieza.centro_pos[1]*26+(26*3), 0);
+            al_draw_bitmap(colores[i], (pieza.periferico_1_pos[0]*26)+(26*10), pieza.periferico_1_pos[1]*26+(26*3), 0);
+            al_draw_bitmap(colores[i], (pieza.periferico_2_pos[0]*26)+(26*10), pieza.periferico_2_pos[1]*26+(26*3), 0);
+            al_draw_bitmap(colores[i], (pieza.periferico_3_pos[0]*26)+(26*10), pieza.periferico_3_pos[1]*26+(26*3), 0);
+            break;
+            
+        case 'S':
+            al_draw_bitmap(colores[i], (pieza.centro_pos[0]*26)+(26*10), pieza.centro_pos[1]*26+(26*3), 0);
+            al_draw_bitmap(colores[i], (pieza.periferico_1_pos[0]*26)+(26*10), pieza.periferico_1_pos[1]*26+(26*3), 0);
+            al_draw_bitmap(colores[i], (pieza.periferico_2_pos[0]*26)+(26*10), pieza.periferico_2_pos[1]*26+(26*3), 0);
+            al_draw_bitmap(colores[i], (pieza.periferico_3_pos[0]*26)+(26*10), pieza.periferico_3_pos[1]*26+(26*3), 0);
+            break;
+            
+        case 'Z':
+            al_draw_bitmap(colores[i], (pieza.centro_pos[0]*26)+(26*10), pieza.centro_pos[1]*26+(26*3), 0);
+            al_draw_bitmap(colores[i], (pieza.periferico_1_pos[0]*26)+(26*10), pieza.periferico_1_pos[1]*26+(26*3), 0);
+            al_draw_bitmap(colores[i], (pieza.periferico_2_pos[0]*26)+(26*10), pieza.periferico_2_pos[1]*26+(26*3), 0);
+            al_draw_bitmap(colores[i], (pieza.periferico_3_pos[0]*26)+(26*10), pieza.periferico_3_pos[1]*26+(26*3), 0);
+            break;
+            
+        case 'I':
+            al_draw_bitmap(colores[i], (pieza.centro_pos[0]*26)+(26*10), pieza.centro_pos[1]*26+(26*4), 0);
+            al_draw_bitmap(colores[i], (pieza.periferico_1_pos[0]*26)+(26*10), pieza.periferico_1_pos[1]*26+(26*4), 0);
+            al_draw_bitmap(colores[i], (pieza.periferico_2_pos[0]*26)+(26*10), pieza.periferico_2_pos[1]*26+(26*4), 0);
+            al_draw_bitmap(colores[i], (pieza.periferico_3_pos[0]*26)+(26*10), pieza.periferico_3_pos[1]*26+(26*4), 0);
+            break;
+            
+        case 'T':
+            al_draw_bitmap(colores[i], (pieza.centro_pos[0]*26)+(26*10), pieza.centro_pos[1]*26+(26*3), 0);
+            al_draw_bitmap(colores[i], (pieza.periferico_1_pos[0]*26)+(26*10), pieza.periferico_1_pos[1]*26+(26*3), 0);
+            al_draw_bitmap(colores[i], (pieza.periferico_2_pos[0]*26)+(26*10), pieza.periferico_2_pos[1]*26+(26*3), 0);
+            al_draw_bitmap(colores[i], (pieza.periferico_3_pos[0]*26)+(26*10), pieza.periferico_3_pos[1]*26+(26*3), 0);
+            break;
+    }
 }
 
 struct datos prandom(struct nodo **h)
