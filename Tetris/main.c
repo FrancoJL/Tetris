@@ -49,7 +49,7 @@ int main(void)
         exit(EXIT_FAILURE);
     }
     
-    int campo[22][12], marca = 0, x, y, n = 1, i = 0, flag = 0, marca2 = 0, campo_opp[22][12];
+    int campo[22][12], marca = 0, x, y, n = 1, i = 0, flag = 0, marca2 = 0;
     ALLEGRO_DISPLAY *display;
     ALLEGRO_FONT *font = al_load_ttf_font("Font/ka1.ttf", 20, 0);
     int lineas_totales = 0, puntos = 0, nivel = 1, lineas;
@@ -69,22 +69,30 @@ int main(void)
     ALLEGRO_EVENT_QUEUE *event_queue = al_create_event_queue();
     ALLEGRO_EVENT events;
     double velocidad = 0.5, auxiliar = 0.5;
-
-    display = al_create_display(960, 600);
-    
+    int fd_w, fd_r, a;
+    char ip[20], nombre[20];
+    mkfifo("FIFO_2", 0666);
+    fd_r = open("FIFO_2", O_RDONLY);
+    do
+    {
+        a = read(fd_r, (void *)nombre, 20);
+    }while(a == 0);
+    close(fd_r);
+    mkfifo("FIFO", 0666);
+    fd_w = open("FIFO", O_WRONLY);
+    al_set_new_window_position(0, 0);
+    display = al_create_display(550, 600);
     if(!font)
     {
         perror("ERROR");
         exit(EXIT_FAILURE);
     }
-        
     cargar_piezas(&h);
     init_campo(campo);
     al_register_event_source(event_queue, al_get_keyboard_event_source());
     srand(getpid());
     pieza = prandom(&h);
     pieza_next = prandom(&h);
-        
     do
     {
         marca = 0;
@@ -96,8 +104,10 @@ int main(void)
         al_draw_textf(font, al_map_rgb(255, 255, 255), 380, 250, ALLEGRO_ALIGN_LEFT, "NIVEL: %d", nivel);
         al_draw_textf(font, al_map_rgb(255, 255, 255), 380, 300, ALLEGRO_ALIGN_LEFT, "LINEAS:%d", lineas_totales);
         al_draw_textf(font, al_map_rgb(255, 255, 255), 380, 350, ALLEGRO_ALIGN_LEFT, "PUNTOS:%d", puntos);
+        al_draw_textf(font, al_map_rgb(255, 255, 255), 380, 0, ALLEGRO_ALIGN_LEFT, "%s", nombre);
         al_flip_display();
         lineas = 0;
+        write(fd_w, (void *)campo, 1056);
         while(marca == 0)
         {
             timer = al_create_timer(velocidad);
@@ -123,14 +133,17 @@ int main(void)
                     {
                         case ALLEGRO_KEY_RIGHT: 
                             mover_derecha(&pieza, campo);
+                            write(fd_w, (void *)campo, 1056);
                             break;
                             
                         case ALLEGRO_KEY_LEFT:
                             mover_izquierda(&pieza, campo);
+                            write(fd_w, (void *)campo, 1056);
                             break;
                             
                         case ALLEGRO_KEY_UP:
                             rotar_pieza(&pieza, campo);
+                            write(fd_w, (void *)campo, 1056);
                             break;
                                 
                         case ALLEGRO_KEY_DOWN:
@@ -159,6 +172,7 @@ int main(void)
             }
             print(&pieza, colores);
             al_flip_display();
+            write(fd_w, (void *)campo, 1056);
         }
         lineas_totales = lineas_totales + lineas;
         puntos = puntos + (lineas*10*nivel);
@@ -174,6 +188,17 @@ int main(void)
             flag = 1;
         }
     }while(flag == 0);
+    for(y = 0; y < 22; y++)
+    {
+        for(x = 0; x < 12; x++)
+        {
+            campo[y][x] = 0;
+        }
+    }
+    write(fd_w, (void *)campo, 1056);
+    close(fd_w);
+    system("rm FIFO");
+    system("rm FIFO_2");
     descargar_lista(&h);
     al_destroy_event_queue(event_queue);
     al_destroy_timer(timer);

@@ -28,7 +28,9 @@
 #include <netinet/in.h>
 #include <netdb.h>
 #include <arpa/inet.h>
-#define PUERTO 2020
+#include <fcntl.h>
+#include <sys/stat.h>
+#include <unistd.h>
 
 /***********************************************************************************************************************************
  *** TIPO DE DATOS GLOBALES

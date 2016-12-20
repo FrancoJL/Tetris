@@ -13,7 +13,7 @@
 /**
 	@fn  		void rotar_pieza(struct datos *pieza,int campo[22][12]) 
 	@brief 		Rota la pieza 
- 	@author 	
+ 	@author 	Franco Jatib, Diego Quispe, Emmanuel Carcomo
  	@date 		18-12-16
  	@param [in] pieza:  direccion del header de la pieza
  	@param [in] campo:  direccion de la matriz
@@ -245,7 +245,7 @@ void rotar_pieza(struct datos *pieza, int campo[22][12])
 /**
 	@fn  		int CtoI(char a) 
 	@brief 		Pasa de caracter a entero
- 	@author 	
+ 	@author 	Franco Jatib, Diego Quispe, Emmanuel Carcomo
  	@date 		18-12-16
  	@param [in] a:  caracter (char)
 	@return         entero (int)
