@@ -1,4 +1,3 @@
-// menu server
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -7,12 +6,6 @@
 #include <allegro5/allegro_image.h>
 #include <allegro5/allegro_font.h>
 #include <allegro5/allegro_ttf.h>
-#include <unistd.h>
-#include <netdb.h>
-#include <netinet/in.h>
-#include <sys/socket.h>
-#include <netinet/in.h>
-#include <arpa/inet.h>
 struct letras
 {
     char nombre;
